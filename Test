@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mcstructure NBT Editor v18</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel2: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --accent-dim: #1f6feb;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --purple: #bc8cff;
+    --orange: #ffa657;
+    --mono: 'SF Mono', 'Consolas', 'Menlo', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 20px 16px 80px;
+  }
+  header { padding: 8px 0 20px; }
+  header h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--text-dim); font-size: 13px; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 8px 14px;
+    cursor: pointer;
+    margin-bottom: -1px;
+    transition: color 0.15s;
+    flex: 0 0 calc(25% - 2px);
+    text-align: center;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Drop zone */
+  .drop {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    display: block;
+    width: 100%;
+    min-height: 140px;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .drop:hover, .drop.drag { border-color: var(--accent); background: rgba(88,166,255,0.05); }
+  .drop input { display: none; }
+  .drop-icon { font-size: 24px; margin-bottom: 8px; opacity: 0.6; }
+  .drop-text { font-size: 14px; color: var(--text); margin-bottom: 2px; }
+  .drop-sub { font-size: 12px; color: var(--text-dim); }
+
+  .filebar {
+    display: none; align-items: center; justify-content: space-between;
+    margin-top: 14px; padding: 10px 12px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: 13px;
+  }
+  .filebar.show { display: flex; }
+  .filebar .name { font-family: var(--mono); color: var(--accent); }
+  .filebar .meta { color: var(--text-dim); font-size: 12px; }
+  .filebar button { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 13px; padding: 4px 8px; }
+  .filebar button:hover { color: var(--text); }
+
+  #status { margin-top: 12px; font-size: 13px; color: var(--text-dim); display: none; }
+  #status.show { display: block; }
+  #status.error { color: var(--red); }
+
+  #results { margin-top: 20px; }
+  .section-title {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-dim); margin: 24px 0 10px; font-weight: 600;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; margin-bottom: 10px;
+  }
+  .card-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .card-head .item-name { font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .card-head .item-loc { font-size: 11px; color: var(--text-dim); }
+
+  .ench-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-top: 1px solid var(--border);
+  }
+  .ench-row:first-of-type { border-top: none; padding-top: 0; }
+  .ench-id { font-family: var(--mono); font-size: 11px; color: var(--text-dim); width: 90px; flex-shrink: 0; line-height: 1.4; }
+  .ench-name { font-size: 13px; flex: 1; min-width: 0; }
+  .ench-lvl-input {
+    width: 80px; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 6px 8px; border-radius: 6px; text-align: right;
+  }
+  .ench-lvl-input:focus { outline: none; border-color: var(--accent); }
+
+  /* Delete enchant button */
+  .del-ench-btn {
+    background: none; border: none; color: var(--text-dim); cursor: pointer;
+    font-size: 15px; padding: 2px 6px; border-radius: 4px; line-height: 1;
+    transition: color 0.15s, background 0.15s;
+  }
+  .del-ench-btn:hover { color: var(--red); background: rgba(248,81,73,0.1); }
+
+  /* Add enchantment */
+  .add-ench-bar {
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .add-ench-bar .ench-id-input {
+    width: 80px; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 6px 8px; border-radius: 6px; text-align: center;
+  }
+  .add-ench-bar .ench-id-input:focus { outline: none; border-color: var(--accent); }
+  .add-ench-bar .ench-id-label {
+    font-size: 12px; color: var(--text-dim); white-space: nowrap;
+  }
+  .add-ench-bar .ench-name-preview {
+    flex: 1; min-width: 100px; font-size: 12px; color: var(--text-dim);
+    font-style: italic; padding: 6px 4px;
+  }
+  .add-ench-btn {
+    background: rgba(88,166,255,0.1); border: 1px solid var(--accent-dim);
+    color: var(--accent); font-size: 13px; padding: 6px 12px;
+    border-radius: 6px; cursor: pointer; white-space: nowrap;
+  }
+  .add-ench-btn:hover { background: rgba(88,166,255,0.2); }
+
+  .ench-quickpick-wrap {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 8px 0 0;
+  }
+  .ench-quickpick-chip {
+    background: rgba(188,140,255,0.1); border: 1px solid var(--purple);
+    color: var(--purple); font-size: 11px; padding: 4px 9px;
+    border-radius: 999px; cursor: pointer; white-space: nowrap;
+    font-family: var(--mono); text-align: center; overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ench-quickpick-chip:hover { background: rgba(188,140,255,0.22); }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;
+  }
+  .toolbar input {
+    flex: 1; min-width: 120px; background: var(--panel);
+    border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 13px; padding: 9px 10px; border-radius: 7px;
+  }
+  .btn {
+    background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    font-size: 13px; padding: 9px 14px; border-radius: 7px; cursor: pointer; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--text-dim); }
+  .btn-primary { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+  .btn-primary:hover { background: var(--accent); border-color: var(--accent); }
+
+  /* Download bar */
+  .download-bar {
+    display: none; margin-top: 20px; padding: 16px;
+    background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.35);
+    border-radius: 10px; text-align: center;
+  }
+  .download-bar.show { display: block; }
+  .download-bar p { margin: 0 0 10px; font-size: 13px; color: var(--green); }
+  .download-btn {
+    background: var(--green); color: #0d1117; border: none; font-weight: 600;
+    font-size: 14px; padding: 10px 20px; border-radius: 7px; cursor: pointer;
+  }
+  .download-btn:hover { opacity: 0.9; }
+
+  .empty { text-align: center; color: var(--text-dim); font-size: 13px; padding: 30px 10px; }
+  .add-item-panel .card { background: var(--panel); }
+  .badge-enchanted { font-size:10px; background:rgba(88,166,255,0.15); color:var(--accent);
+    border:1px solid var(--accent-dim); border-radius:4px; padding:1px 6px; margin-left:6px; vertical-align:middle; }
+  .badge-plain { font-size:10px; background:rgba(139,148,158,0.1); color:var(--text-dim);
+    border:1px solid var(--border); border-radius:4px; padding:1px 6px; margin-left:6px; vertical-align:middle; }
+
+  /* ===== NBT TREE VIEW ===== */
+  #treePanel { margin-top: 20px; }
+  .tree-container {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px;
+    font-family: var(--mono); font-size: 12px; line-height: 1.7;
+    overflow-x: auto; max-height: 600px; overflow-y: auto;
+  }
+  .tree-node { white-space: nowrap; }
+  .tree-toggle {
+    cursor: pointer; user-select: none;
+    display: inline-block; width: 16px; text-align: center;
+    color: var(--text-dim); font-size: 10px;
+  }
+  .tree-key { color: var(--accent); }
+  .tree-type { color: var(--text-dim); font-size: 10px; margin: 0 4px; }
+  .tree-val-str { color: var(--green); }
+  .tree-val-num { color: var(--orange); }
+  .tree-val-byte { color: var(--yellow); }
+  .tree-val-tag { color: var(--purple); }
+  .tree-children { margin-left: 18px; border-left: 1px solid var(--border); padding-left: 8px; }
+  .tree-children.collapsed { display: none; }
+  .tree-summary { color: var(--text-dim); font-size: 11px; }
+
+  /* ===== JSON VIEW ===== */
+  #jsonPanel { margin-top: 20px; }
+  .json-toolbar {
+    display: flex; gap: 8px; margin-bottom: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .json-toolbar input {
+    flex: 1; min-width: 180px; background: var(--panel);
+    border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 13px; padding: 8px 10px; border-radius: 7px;
+  }
+  .json-toolbar input:focus { outline: none; border-color: var(--accent); }
+  .json-box {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px;
+    font-family: var(--mono); font-size: 12px; line-height: 1.6;
+    overflow-x: auto; max-height: 600px; overflow-y: auto;
+    white-space: pre;
+    color: var(--text);
+  }
+  .json-box .jk { color: var(--accent); }
+  .json-box .js { color: var(--green); }
+  .json-box .jn { color: var(--orange); }
+  .json-box .jb { color: var(--yellow); }
+  .json-box .jp { color: var(--text-dim); }
+  .json-search-match { background: rgba(210,153,34,0.35); border-radius: 2px; }
+  .copy-btn {
+    background: var(--panel2); border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 12px; padding: 6px 12px;
+    border-radius: 6px; cursor: pointer; white-space: nowrap;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .copy-btn.copied { color: var(--green); border-color: var(--green); }
+  .json-stats { font-size: 12px; color: var(--text-dim); }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div>
+        <h1>mcstructure NBT Editor</h1>
+        <p>Edit, add or remove enchantments · Browse NBT tree · View raw JSON — all in your browser.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;padding-top:2px;">
+        <span style="font-size:11px;color:var(--text-dim);white-space:nowrap;">Enchant ID versiyasi:</span>
+        <div style="display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;">
+          <button id="btnOldVer" style="background:var(--panel2);color:var(--text-dim);border:none;font-size:12px;padding:6px 13px;cursor:pointer;font-weight:600;">Old</button>
+          <button id="btnNewVer" style="background:var(--accent-dim);color:#fff;border:none;font-size:12px;padding:6px 13px;cursor:pointer;font-weight:600;border-left:1px solid var(--border);">New</button>
+        </div>
+        <span id="versionLabel" style="font-size:11px;color:var(--green);">1.21 – 1.26.x</span>
+      </div>
+    </div>
+  </header>
+
+  <label class="drop" id="dropZone">
+    <input type="file" id="fileInput" accept=".mcstructure">
+    <div class="drop-icon">📦</div>
+    <div class="drop-text">Tap to choose a .mcstructure file</div>
+    <div class="drop-sub">or drag and drop it here</div>
+  </label>
+
+  <!-- World yuklash -->
+  <div style="display:flex;gap:8px;margin-top:10px;">
+    <button class="btn btn-primary" id="worldFolderBtn" style="flex:1;">🌍 World papkasini yuklash</button>
+    <button class="btn" id="structureExportBtn" style="flex:1;">📂 .ldb fayllar tanlash</button>
+  </div>
+  <input type="file" id="worldFolderInput" webkitdirectory multiple style="display:none">
+  <input type="file" id="structureExportInput" accept=".ldb" multiple style="display:none">
+
+  <!-- World structure ro'yxati -->
+  <div id="worldPanel" style="display:none;margin-top:14px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+      <span id="worldInfo" style="font-size:13px;color:var(--text-dim);flex:1;"></span>
+      <input type="text" id="structureSearch" placeholder="🔍 Qidirish..." 
+        style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;padding:7px 10px;border-radius:6px;width:200px;">
+    </div>
+    <!-- Checkboxlar bilan ro'yxat -->
+    <div id="structureCheckList" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:10px;"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" id="selectAllBtn">☑ Hammasini tanlash</button>
+      <button class="btn" id="selectNoneBtn">☐ Bekor qilish</button>
+      <button class="btn btn-primary" id="exportSelectedBtn" style="flex:1;">⬇ Tanlanganllarni export (.mcpack)</button>
+      <button class="btn" id="exportEachBtn">📦 Har birini alohida .mcstructure</button>
+    </div>
+  </div>
+
+  <div id="structureExportStatus" style="margin-top:10px;font-size:13px;color:var(--text-dim);"></div>
+  <div id="structureExportResults"></div>
+
+  <div class="filebar" id="fileBar">
+    <div>
+      <div class="name" id="fileName"></div>
+      <div class="meta" id="fileMeta"></div>
+    </div>
+    <button id="clearBtn">Remove</button>
+  </div>
+
+  <div id="status"></div>
+
+  <!-- TABS -->
+  <div class="tabs" id="tabBar" style="display:none; margin-top:20px;">
+    <button class="tab-btn active" data-tab="enchants">📥 Import</button>
+    <button class="tab-btn" data-tab="enchlist">📜 Enchant List</button>
+    <button class="tab-btn" data-tab="containers">📦 Containers</button>
+    <button class="tab-btn" data-tab="trade">🧑‍🌾 Trade</button>
+    <button class="tab-btn" data-tab="entities">🧟 Entities</button>
+    <button class="tab-btn" data-tab="tree">🌲 NBT Tree</button>
+    <button class="tab-btn" data-tab="json">{ } Raw JSON</button>
+    <button class="tab-btn" data-tab="cmdblock">⚙ Command Block</button>
+    <button class="tab-btn" data-tab="spawner">🐣 Spawner</button>
+    <button class="tab-btn" data-tab="viewer3d">🧱 3D Viewer</button>
+    <button class="tab-btn" data-tab="export">📤 Eksport</button>
+  </div>
+
+  <!-- TAB: Enchantments -->
+  <div id="tab-enchants">
+    <div id="results"></div>
+    <div class="toolbar" id="toolbar" style="display:none;">
+      <input type="number" id="bulkValue" placeholder="Set all levels to…">
+      <button class="btn" id="applyAllBtn">Apply to all</button>
+    </div>
+
+    <!-- Add new item panel -->
+    <div class="add-item-panel" id="addItemPanel" style="display:none;">
+      <div class="section-title" style="margin-top:20px;">➕ Add new item to structure</div>
+      <div class="card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap;">Qaysi containerga:</span>
+          <select id="newItemContainerSel"
+            style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;padding:7px 10px;border-radius:6px;"></select>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap;">Item name:</span>
+          <input type="text" id="newItemName" placeholder="diamond_sword  yoki  mymod:item"
+            style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;padding:7px 10px;border-radius:6px;">
+          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap;">Slot:</span>
+          <input type="number" id="newItemSlot" placeholder="auto" min="0" max="53"
+            style="width:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;padding:7px 8px;border-radius:6px;text-align:center;">
+          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap;">Count:</span>
+          <input type="number" id="newItemCount" value="1" min="1" max="64"
+            style="width:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;padding:7px 8px;border-radius:6px;text-align:center;">
+          <span style="font-size:12px;color:var(--text-dim);white-space:nowrap;" title="Data/Damage qiymati — variantlar uchun, /give bilan stack mos kelishi uchun">Data:</span>
+          <input type="number" id="newItemData" value="0" min="0"
+            style="width:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;padding:7px 8px;border-radius:6px;text-align:center;">
+          <button class="btn btn-primary" id="addItemBtn">+ Add item</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);">Yuqorida qaysi container (sandiq, barrel, shulker — ichkisi ham) tanlangan bo'lsa, item shu containerga qo'shiladi. Keyin yuqoridan enchantment qo'shishingiz mumkin.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Enchant List -->
+  <div id="tab-enchlist" style="display:none;">
+    <div style="margin-top:20px;">
+      <div class="section-title">📜 Shaxsiy Enchant List</div>
+      <div class="card" style="margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;line-height:1.5;">
+          .txt fayl yuklang. Ikki format qo'llab-quvvatlanadi: <b>yangi</b> — <code>id:strId daraja</code>
+          (masalan <code>9:protection 3</code>, eksportda shu format ishlatiladi) yoki <b>eski</b> — faqat nom
+          (masalan <code>Sharpness</code> yoki <code>Sharpness "5"</code>). Faylning <b>nomi</b> (masalan
+          <code>sword.txt</code> → <b>sword</b>) ro'yxatda alohida list sifatida chiqadi. Shu listga bosilganda —
+          ICHIDAGI barcha enchant'lar bir vaqtning o'zida tanlangan itemga qo'shiladi. Enchantments va Containers
+          tablarida shu listlar tugma (chip) sifatida ko'rinadi.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+          <label class="btn" id="enchListUploadLabel" style="cursor:pointer;">
+            📁 .txt yuklash
+            <input type="file" id="enchListFileInput" accept=".txt" style="display:none;">
+          </label>
+          <input type="text" id="enchListManualInput" placeholder='Yoki qo&#39;lda: Sharpness yoki Sharpness "5", Smite "3"'
+            style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;padding:7px 10px;border-radius:6px;">
+          <button class="btn btn-primary" id="enchListAddManualBtn">+ Yangi list sifatida qo'sh</button>
+          <button class="btn" id="enchListClearBtn" style="color:var(--red);">🗑 Hammasini tozalash</button>
+        </div>
+        <div id="enchListStatus" style="font-size:11px;color:var(--text-dim);"></div>
+      </div>
+      <div id="enchListItems"><div class="empty">
